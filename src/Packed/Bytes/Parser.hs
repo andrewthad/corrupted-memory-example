@@ -19,7 +19,6 @@
 
 module Packed.Bytes.Parser
   ( Parser(..)
-  , ParserLevity(..)
   , Result(..)
   , Leftovers(..)
   , parseStreamST
@@ -46,8 +45,7 @@ import GHC.Exts (Int#,ByteArray#,Word#,State#,(+#),(-#),(>#),eqWord#,indexWord8A
 type Bytes# = (# ByteArray#, Int#, Int# #)
 type Maybe# (a :: TYPE r) = (# (# #) | a #)
 type Leftovers# s = (# Bytes# , ByteStream s #)
-type Result# s (r :: RuntimeRep) (a :: TYPE r) =
-  (# Maybe# (Leftovers# s), Maybe# a #)
+type Result# s a = (# Maybe# (Leftovers# s), Maybe# a #)
 
 data Result s a = Result
   { resultLeftovers :: !(Maybe (Leftovers s))
@@ -67,11 +65,11 @@ data PureResult a = PureResult
   } deriving (Show)
 
 parseStreamST :: ByteStream s -> Parser a -> ST s (Result s a)
-parseStreamST stream (Parser (ParserLevity f)) = ST $ \s0 ->
+parseStreamST stream (Parser f) = ST $ \s0 ->
   case f (# | (# (# unboxByteArray BA.empty, 0#, 0# #), stream #) #) s0 of
     (# s1, r #) -> (# s1, boxResult r #)
 
-boxResult :: Result# s 'LiftedRep a -> Result s a
+boxResult :: Result# s a -> Result s a
 boxResult (# leftovers, val #) = case val of
   (# (# #) | #) -> Result (boxLeftovers leftovers) Nothing
   (# | a #) -> Result (boxLeftovers leftovers) (Just a)
@@ -79,8 +77,6 @@ boxResult (# leftovers, val #) = case val of
 boxLeftovers :: Maybe# (Leftovers# s) -> Maybe (Leftovers s)
 boxLeftovers (# (# #) | #) = Nothing
 boxLeftovers (# | (# theBytes, stream #) #) = Just (Leftovers (boxBytes theBytes) stream)
-
-newtype Parser a = Parser (ParserLevity 'LiftedRep a)
 
 instance Functor Parser where
   fmap = mapParser
@@ -94,11 +90,11 @@ instance Monad Parser where
   return = pure
   (>>=) = bindLifted
 
-newtype ParserLevity (r :: RuntimeRep) (a :: TYPE r) = ParserLevity
-  { getParserLevity :: forall s.
+newtype Parser a = Parser
+  { getParser :: forall s.
        Maybe# (Leftovers# s)
     -> State# s
-    -> (# State# s, Result# s r a #)
+    -> (# State# s, Result# s a #)
   }
 
 nextNonEmpty :: ByteStream s -> State# s -> (# State# s, Maybe# (Leftovers# s) #)
@@ -110,15 +106,15 @@ nextNonEmpty (ByteStream f) s0 = case f s0 of
       _ -> (# s1, (# | (# theBytes, stream #) #) #)
 
 {-# INLINE withNonEmpty #-}
-withNonEmpty :: forall s (r :: RuntimeRep) (b :: TYPE r).
+withNonEmpty :: forall s b.
      Maybe# (Leftovers# s)
   -> State# s
-  -> (State# s -> (# State# s, Result# s r b #))
-  -> (Word# -> Bytes# -> ByteStream s -> State# s -> (# State# s, Result# s r b #))
+  -> (State# s -> (# State# s, Result# s b #))
+  -> (Word# -> Bytes# -> ByteStream s -> State# s -> (# State# s, Result# s b #))
      -- The first argument is a Word8, not a full machine word.
      -- The second argument is the complete,non-empty chunk
      -- with the head byte still intact.
-  -> (# State# s, Result# s r b #)
+  -> (# State# s, Result# s b #)
 withNonEmpty (# (# #) | #) s0 g _ = g s0
 withNonEmpty (# | (# bytes0@(# arr0,off0,len0 #), stream0 #) #) s0 g f = case len0 ># 0# of
   1# -> f (indexWord8Array# arr0 off0) bytes0 stream0 s0
@@ -128,53 +124,39 @@ withNonEmpty (# | (# bytes0@(# arr0,off0,len0 #), stream0 #) #) s0 g f = case le
       (# | (# bytes1@(# arr1, off1, _ #), stream1 #) #) -> 
         f (indexWord8Array# arr1 off1) bytes1 stream1 s1
 
-anyUnboxed :: ParserLevity 'WordRep Word#
-anyUnboxed = ParserLevity go where
-  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s 'WordRep Word# #)
+-- | Consume the next byte from the input.
+any :: Parser Word8
+any = Parser go where
+  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s Word8 #)
   go m s0 = withNonEmpty m s0
     (\s -> (# s, (# (# (# #) | #), (# (# #) | #) #) #))
     (\theByte theBytes stream s ->
-      (# s, (# (# | (# unsafeDrop# 1# theBytes, stream #) #), (# | theByte #) #) #)
+      (# s, (# (# | (# unsafeDrop# 1# theBytes, stream #) #), (# | W8# theByte #) #) #)
     )
 
-endOfInputUnboxed :: ParserLevity 'LiftedRep ()
-endOfInputUnboxed = ParserLevity go where
-  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s 'LiftedRep () #)
+endOfInput :: Parser ()
+endOfInput = Parser go where
+  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s () #)
   go m s0 = withNonEmpty m s0
     (\s -> (# s, (# (# (# #) | #), (# | () #) #) #))
     (\_ theBytes stream s -> 
       (# s, (# (# | (# theBytes, stream #) #), (# (# #) | #) #) #)
     )
 
--- | Only succeed if there is no more input remaining.
-endOfInput :: Parser ()
-endOfInput = Parser endOfInputUnboxed
-
--- | Consume the next byte from the input.
-any :: Parser Word8
-any = Parser (boxWord8Parser anyUnboxed)
-
 -- TODO: improve this
 mapParser :: (a -> b) -> Parser a -> Parser b
 mapParser f p = bindLifted p (pureParser . f)
 
 pureParser :: a -> Parser a
-pureParser a = Parser $ ParserLevity $ \leftovers0 s0 ->
+pureParser a = Parser $ \leftovers0 s0 ->
   (# s0, (# leftovers0, (# | a #) #) #)
 
 bindLifted :: Parser a -> (a -> Parser b) -> Parser b
-bindLifted (Parser (ParserLevity f)) g = Parser $ ParserLevity $ \leftovers0 s0 -> case f leftovers0 s0 of
+bindLifted (Parser f) g = Parser $ \leftovers0 s0 -> case f leftovers0 s0 of
   (# s1, (# leftovers1, val #) #) -> case val of
     (# (# #) | #) -> (# s1, (# leftovers1, (# (# #) | #) #) #)
     (# | x #) -> case g x of
-      Parser (ParserLevity k) -> k leftovers1 s1
-
-boxWord8Parser :: ParserLevity 'WordRep Word# -> ParserLevity 'LiftedRep Word8
-boxWord8Parser p = ParserLevity $ \leftovers0 s0 ->
-  case getParserLevity p leftovers0 s0 of
-    (# s1, (# leftovers1, val #) #) -> case val of
-      (# (# #) | #) -> (# s1, (# leftovers1, (# (# #) | #) #) #)
-      (# | x #) -> (# s1, (# leftovers1, (# | W8# x #) #) #)
+      Parser k -> k leftovers1 s1
 
 -- This assumes that the Bytes is longer than the index. It also does
 -- not eliminate zero-length references to byte arrays.
@@ -188,5 +170,5 @@ boxBytes :: Bytes# -> Bytes
 boxBytes (# a, b, c #) = Bytes (ByteArray a) (I# b) (I# c)
 
 failure :: Parser a
-failure = Parser (ParserLevity (\m s -> (# s, (# m, (# (# #) | #) #) #)))
+failure = Parser (\m s -> (# s, (# m, (# (# #) | #) #) #))
 
