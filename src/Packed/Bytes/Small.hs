@@ -48,7 +48,7 @@ pack :: [Word8] -> ByteArray
 pack ws0 = runST $ do
   marr <- PM.newByteArray (L.length ws0)
   let go [] !_ = return ()
-      go (w : ws) !ix = writeByteArrayWord8 marr ix w >> go ws (ix + 1)
+      go (w : ws) !ix = PM.writeByteArray marr ix w >> go ws (ix + 1)
   go ws0 0
   PM.unsafeFreezeByteArray marr
 
@@ -112,9 +112,6 @@ take !n !arr = if n < length arr
 
 empty :: ByteArray
 empty = runST (PM.newByteArray 0 >>= PM.unsafeFreezeByteArray)
-
-writeByteArrayWord8 :: MutableByteArray s -> Int -> Word8 -> ST s ()
-writeByteArrayWord8 = PM.writeByteArray
 
 -- | Does not check to see if the index is in bounds.
 unsafeIndex :: ByteArray -> Int -> Word8
