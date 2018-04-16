@@ -28,7 +28,7 @@ import qualified Data.Trie.Naive as Naive
 
 snmptrapdNaive :: Naive.Trie (Parser Word)
 snmptrapdNaive = Naive.fromStringList
-  [ ("STRING: ", P.byte (c2w ' ') >>= \_ -> return 5)
+  [ ("STRING: ", P.any >>= \_ -> return 5)
   ]
 
 runExampleParser :: Parser a -> (forall s. ByteStream s) -> (Maybe a, Maybe String)

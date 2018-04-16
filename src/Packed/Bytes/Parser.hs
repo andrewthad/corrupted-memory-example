@@ -23,7 +23,6 @@ module Packed.Bytes.Parser
   , Result(..)
   , Leftovers(..)
   , parseStreamST
-  , byte
   , any
   , endOfInput
   , failure
@@ -129,16 +128,6 @@ withNonEmpty (# | (# bytes0@(# arr0,off0,len0 #), stream0 #) #) s0 g f = case le
       (# | (# bytes1@(# arr1, off1, _ #), stream1 #) #) -> 
         f (indexWord8Array# arr1 off1) bytes1 stream1 s1
 
-byteUnboxed :: Word8 -> ParserLevity 'LiftedRep ()
-byteUnboxed (W8# expected) = ParserLevity go where
-  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s 'LiftedRep () #)
-  go m s0 = withNonEmpty m s0
-    (\s -> (# s, (# (# (# #) | #), (# (# #) | #) #) #))
-    (\actual theBytes stream s -> case eqWord# expected actual of
-      1# -> (# s, (# (# | (# unsafeDrop# 1# theBytes, stream #) #), (# | () #) #) #)
-      _ -> (# s, (# (# | (# theBytes, stream #) #), (# (# #) | #) #) #)
-    )
-
 anyUnboxed :: ParserLevity 'WordRep Word#
 anyUnboxed = ParserLevity go where
   go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s 'WordRep Word# #)
@@ -164,10 +153,6 @@ endOfInput = Parser endOfInputUnboxed
 -- | Consume the next byte from the input.
 any :: Parser Word8
 any = Parser (boxWord8Parser anyUnboxed)
-
--- | Consume a byte matching the specified one.
-byte :: Word8 -> Parser ()
-byte theByte = Parser (byteUnboxed theByte)
 
 -- TODO: improve this
 mapParser :: (a -> b) -> Parser a -> Parser b
