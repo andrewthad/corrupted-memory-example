@@ -46,16 +46,13 @@ byteParserBadOnce x = do
   let sample = ("STRING: _6_ " ++ show x)
       stream = Stream.fromBytes (s2b sample)
       expected = 6
-      (r,mextra) = runExampleParser (Naive.parser snmptrapdNaive <* P.endOfInput) stream
+      (r,mextra) = runExampleParser (Naive.parser snmptrapdNaive) stream
       a1 = if Nothing == mextra then 1 else 0
       a2 = if Just expected == r then 1 else 0
    in a1 + (a2 + x)
 
 s2b :: String -> Bytes
 s2b = B.pack . map charToWord8
-
-c2w :: Char -> Word8
-c2w = charToWord8
 
 charToWord8 :: Char -> Word8
 charToWord8 = fromIntegral . Data.Char.ord

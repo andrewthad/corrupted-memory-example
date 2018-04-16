@@ -23,14 +23,13 @@ module Packed.Bytes.Parser
   , Leftovers(..)
   , parseStreamST
   , any
-  , endOfInput
   , failure
   ) where
 
 import Control.Applicative
 import GHC.Int (Int(I#))
 import GHC.ST (ST(..))
-import GHC.Types (TYPE,RuntimeRep(..))
+import GHC.Types (TYPE)
 import GHC.Word (Word8(W8#))
 import Packed.Bytes (Bytes(..))
 import Packed.Bytes.Small (ByteArray(..))
@@ -40,7 +39,7 @@ import Prelude hiding (any,replicate)
 import qualified Control.Monad
 import qualified Packed.Bytes.Small as BA
 
-import GHC.Exts (Int#,ByteArray#,Word#,State#,(+#),(-#),(>#),eqWord#,indexWord8Array#)
+import GHC.Exts (Int#,ByteArray#,Word#,State#,(+#),(-#),(>#),indexWord8Array#)
 
 type Bytes# = (# ByteArray#, Int#, Int# #)
 type Maybe# (a :: TYPE r) = (# (# #) | a #)
@@ -132,15 +131,6 @@ any = Parser go where
     (\s -> (# s, (# (# (# #) | #), (# (# #) | #) #) #))
     (\theByte theBytes stream s ->
       (# s, (# (# | (# unsafeDrop# 1# theBytes, stream #) #), (# | W8# theByte #) #) #)
-    )
-
-endOfInput :: Parser ()
-endOfInput = Parser go where
-  go :: Maybe# (Leftovers# s) -> State# s -> (# State# s, Result# s () #)
-  go m s0 = withNonEmpty m s0
-    (\s -> (# s, (# (# (# #) | #), (# | () #) #) #))
-    (\_ theBytes stream s -> 
-      (# s, (# (# | (# theBytes, stream #) #), (# (# #) | #) #) #)
     )
 
 -- TODO: improve this
