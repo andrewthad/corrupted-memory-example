@@ -19,8 +19,6 @@ library
     , primitive >= 0.6.1 && < 0.7
   exposed-modules:
     Packed.Bytes
-    Packed.Bytes.Window
-    Packed.Bytes.Small
     Packed.Bytes.Parser
     Packed.Bytes.Stream.ST
   default-language: Haskell2010

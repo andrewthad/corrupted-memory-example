@@ -14,14 +14,13 @@ module Packed.Bytes.Stream.ST
   , fromBytes
   ) where
 
-import Data.Primitive (Array)
+import Data.Primitive (Array,ByteArray(..))
 import Data.Semigroup (Semigroup)
 import Data.Word (Word8)
 import GHC.Exts (RealWorld,State#,Int#,ByteArray#)
 import GHC.Int (Int(I#))
 import GHC.ST (ST(..))
 import Packed.Bytes (Bytes(..))
-import Packed.Bytes.Small (ByteArray(..))
 import System.IO (Handle)
 import qualified Data.Primitive as PM
 import qualified Data.Semigroup as SG

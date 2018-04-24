@@ -23,11 +23,11 @@ module Packed.Bytes
 
 import Prelude hiding (take,length,replicate,drop,null,concat,foldr)
 
-import Packed.Bytes.Small (ByteArray(..))
+import Data.Primitive (ByteArray(..))
 import Data.Word (Word8)
-import qualified Packed.Bytes.Window as BAW
-import qualified Packed.Bytes.Small as BA
+import Control.Monad.ST (runST)
 import qualified Data.Primitive as PM
+import qualified GHC.OldList as L
 
 data Bytes = Bytes
   {-# UNPACK #-} !ByteArray -- payload
@@ -38,7 +38,7 @@ instance Show Bytes where
   show x = "pack " ++ show (unpack x)
 
 pack :: [Word8] -> Bytes
-pack bs = let arr = BA.pack bs in Bytes arr 0 (BA.length arr)
+pack bs = let arr = packByteArray bs in Bytes arr 0 (lengthByteArray arr)
 
 unpack :: Bytes -> [Word8]
 unpack (Bytes arr off len) = go off
@@ -49,11 +49,33 @@ unpack (Bytes arr off len) = go off
     else []
 
 fromByteArray :: ByteArray -> Bytes
-fromByteArray ba = Bytes ba 0 (BA.length ba)
+fromByteArray ba = Bytes ba 0 (lengthByteArray ba)
 
 length :: Bytes -> Int
 length (Bytes _ _ len) = len
 
 foldr :: (Word8 -> a -> a) -> a -> Bytes -> a
-foldr f a (Bytes arr off len) = BAW.foldr off len f a arr
+foldr f a0 (Bytes arr off0 len) = go off0 where
+  !end = off0 + len
+  go !ix = if ix < end
+    then f (PM.indexByteArray arr ix) (go (ix + 1))
+    else a0
+
+packByteArray :: [Word8] -> ByteArray
+packByteArray ws0 = runST $ do
+  marr <- PM.newByteArray (L.length ws0)
+  let go [] !_ = return ()
+      go (w : ws) !ix = PM.writeByteArray marr ix w >> go ws (ix + 1)
+  go ws0 0
+  PM.unsafeFreezeByteArray marr
+
+unpackByteArray :: ByteArray -> [Word8]
+unpackByteArray arr = go 0 where
+  go :: Int -> [Word8]
+  go !ix = if ix < lengthByteArray arr
+    then PM.indexByteArray arr ix : go (ix + 1)
+    else []
+
+lengthByteArray :: ByteArray -> Int
+lengthByteArray = PM.sizeofByteArray
 

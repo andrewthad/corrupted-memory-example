@@ -27,17 +27,17 @@ module Packed.Bytes.Parser
   ) where
 
 import Control.Applicative
+import Data.Primitive (ByteArray(..))
 import GHC.Int (Int(I#))
-import GHC.ST (ST(..))
+import GHC.ST (ST(..),runST)
 import GHC.Types (TYPE)
 import GHC.Word (Word8(W8#))
 import Packed.Bytes (Bytes(..))
-import Packed.Bytes.Small (ByteArray(..))
 import Packed.Bytes.Stream.ST (ByteStream(..))
 import Prelude hiding (any,replicate)
 
+import qualified Data.Primitive as PM
 import qualified Control.Monad
-import qualified Packed.Bytes.Small as BA
 
 import GHC.Exts (Int#,ByteArray#,Word#,State#,(+#),(-#),(>#),indexWord8Array#)
 
@@ -63,9 +63,12 @@ data PureResult a = PureResult
   , pureResultValue :: !(Maybe a)
   } deriving (Show)
 
+emptyByteArray :: ByteArray
+emptyByteArray = runST (PM.newByteArray 0 >>= PM.unsafeFreezeByteArray)
+
 parseStreamST :: ByteStream s -> Parser a -> ST s (Result s a)
 parseStreamST stream (Parser f) = ST $ \s0 ->
-  case f (# | (# (# unboxByteArray BA.empty, 0#, 0# #), stream #) #) s0 of
+  case f (# | (# (# unboxByteArray emptyByteArray, 0#, 0# #), stream #) #) s0 of
     (# s1, r #) -> (# s1, boxResult r #)
 
 boxResult :: Result# s a -> Result s a
