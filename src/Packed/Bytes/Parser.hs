@@ -104,7 +104,6 @@ nextNonEmpty (ByteStream f) s0 = case f s0 of
       0# -> nextNonEmpty stream s1
       _ -> (# s1, (# | (# theBytes, stream #) #) #)
 
-{-# INLINE withNonEmpty #-}
 withNonEmpty :: forall s b.
      Maybe# (Leftovers# s)
   -> State# s
