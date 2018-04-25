@@ -19,6 +19,8 @@ module Packed.Bytes
   , foldr
     -- * Unsliced Byte Arrays
   , fromByteArray
+
+  , drop
   ) where
 
 import Prelude hiding (take,length,replicate,drop,null,concat,foldr)
@@ -28,6 +30,9 @@ import Data.Word (Word8)
 import Control.Monad.ST (runST)
 import qualified Data.Primitive as PM
 import qualified GHC.OldList as L
+
+drop :: Int -> Bytes -> Bytes
+drop i (Bytes arr off len) = Bytes arr (off + 1) (len - 1)
 
 data Bytes = Bytes
   {-# UNPACK #-} !ByteArray -- payload
