@@ -1,6 +1,0 @@
-resolver: lts-11.1
-packages:
-- .
-extra-deps:
-- 'tasty-1.0.1'
-- 'gauge-0.2.1'
