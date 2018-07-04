@@ -15,6 +15,9 @@ module Packed.Bytes
   , pack
   , unpack
   , length
+  , singleton
+  , cons
+  , append
     -- * Folds
   , foldr
     -- * Unsliced Byte Arrays
@@ -78,4 +81,29 @@ unpackByteArray arr = go 0 where
 
 lengthByteArray :: ByteArray -> Int
 lengthByteArray = PM.sizeofByteArray
+
+cons :: Word8 -> Bytes -> Bytes
+cons w (Bytes arr off len) = runST $ do
+  marr <- PM.newByteArray (len + 1)
+  PM.writeByteArray marr 0 w
+  PM.copyByteArray marr 1 arr off len
+  newArr <- PM.unsafeFreezeByteArray marr
+  return (Bytes newArr 0 (len + 1))
+
+singleton :: Word8 -> Bytes
+singleton w = Bytes (singletonByteArray w) 0 1
+
+singletonByteArray :: Word8 -> ByteArray
+singletonByteArray w = runST $ do
+  marr <- PM.newByteArray 1
+  PM.writeByteArray marr 0 w
+  PM.unsafeFreezeByteArray marr
+
+append :: Bytes -> Bytes -> Bytes
+append (Bytes arr1 off1 len1) (Bytes arr2 off2 len2) = runST $ do
+  marr <- PM.newByteArray (len1 + len2)
+  PM.copyByteArray marr 0 arr1 off1 len1
+  PM.copyByteArray marr len1 arr2 off2 len2
+  arr <- PM.unsafeFreezeByteArray marr
+  return (Bytes arr 0 (len1 + len2))
 

@@ -12,6 +12,7 @@ module Packed.Bytes.Stream.ST
   , empty
   , unpack
   , fromBytes
+  , singleton
   ) where
 
 import Data.Primitive (Array,ByteArray(..))
@@ -59,3 +60,21 @@ unpackInternal (ByteStream f) s0 = case f s0 of
     (# (# #) | #) -> (# s1, [] #)
     (# | (# bytes, stream #) #) -> case unpackInternal stream s1 of
       (# s2, ws #) -> (# s2, B.unpack (boxBytes bytes) ++ ws #)
+
+singleton :: Word8 -> ByteStream s
+singleton !w = ByteStream
+  (\s0 -> (# s0, (# | (# unboxBytes (B.singleton w), empty #) #) #))
+  
+instance Semigroup (ByteStream s) where
+  (<>) = append
+
+instance Monoid (ByteStream s) where
+  mempty = empty
+  mappend = (SG.<>)
+
+append :: ByteStream s -> ByteStream s -> ByteStream s
+append (ByteStream f) x@(ByteStream g) = ByteStream $ \s0 -> case f s0 of
+  (# s1, r #) -> case r of
+    (# (# #) | #) -> g s1
+    (# | (# bytes, stream #) #) -> (# s1, (# | (# bytes, append stream x #) #) #)
+
