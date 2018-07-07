@@ -26,7 +26,6 @@ module Packed.Bytes.Parser
   , failure
   ) where
 
-import Control.Applicative
 import Data.Primitive (ByteArray(..))
 import GHC.Int (Int(I#))
 import GHC.ST (ST(..),runST)
@@ -37,12 +36,11 @@ import Packed.Bytes.Stream.ST (ByteStream(..))
 import Prelude hiding (any,replicate)
 
 import qualified Data.Primitive as PM
-import qualified Control.Monad
 import qualified Packed.Bytes as B
 import qualified Packed.Bytes.Stream.ST as Stream
 import qualified Packed.Bytes.Window as BAW
 
-import GHC.Exts (Int#,ByteArray#,Word#,State#,(+#),(-#),(>#),(<#),indexWord8Array#)
+import GHC.Exts (Int#,ByteArray#,State#,(+#),(-#),(<#),indexWord8Array#)
 
 type Bytes# = (# ByteArray#, Int#, Int# #)
 type Maybe# (a :: TYPE r) = (# (# #) | a #)
@@ -88,18 +86,6 @@ boxLeftovers :: Maybe# (Leftovers# s) -> Maybe (Leftovers s)
 boxLeftovers (# (# #) | #) = Nothing
 boxLeftovers (# | (# theBytes, stream #) #) = Just (Leftovers (boxBytes theBytes) stream)
 
-instance Functor (Parser e c) where
-  fmap = mapParser
-
--- Remember to write liftA2 by hand at some point.
-instance Applicative (Parser e c) where
-  pure = pureParser
-  (<*>) = Control.Monad.ap
-
-instance Monad (Parser e c) where
-  return = pure
-  (>>=) = bindLifted
-
 newtype Parser e c a = Parser (ParserLevity e c 'LiftedRep a)
 
 newtype ParserLevity e c (r :: RuntimeRep) (a :: TYPE r) = ParserLevity
@@ -117,22 +103,6 @@ nextNonEmpty (ByteStream f) s0 = case f s0 of
     (# | (# theBytes@(# _,_,len #), stream #) #) -> case len of
       0# -> nextNonEmpty stream s1
       _ -> (# s1, (# | (# theBytes, stream #) #) #)
-
-
--- TODO: improve this
-mapParser :: (a -> b) -> Parser e c a -> Parser e c b
-mapParser f p = bindLifted p (pureParser . f)
-
-pureParser :: a -> Parser e c a
-pureParser a = Parser $ ParserLevity $ \c0 leftovers0 s0 ->
-  (# s0, (# leftovers0, (# | a #), c0 #) #)
-
-bindLifted :: Parser e c a -> (a -> Parser e c b) -> Parser e c b
-bindLifted (Parser (ParserLevity f)) g = Parser $ ParserLevity $ \c0 leftovers0 s0 -> case f c0 leftovers0 s0 of
-  (# s1, (# leftovers1, val, c1 #) #) -> case val of
-    (# err | #) -> (# s1, (# leftovers1, (# err | #), c1 #) #)
-    (# | x #) -> case g x of
-      Parser (ParserLevity k) -> k c1 leftovers1 s1
 
 -- This assumes that the Bytes is longer than the index. It also does
 -- not eliminate zero-length references to byte arrays.

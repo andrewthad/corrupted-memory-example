@@ -27,12 +27,9 @@ import Data.Primitive (ByteArray(ByteArray))
 import Data.Word (Word8)
 import GHC.Types (RuntimeRep,TYPE)
 import GHC.Int (Int(I#))
-import GHC.Word (Word8(W8#),Word(W#))
-import GHC.Exts (Int#,Word#,ByteArray#,byteSwap#,word2Int#,(+#),int2Word#)
-import Data.Bits (xor,(.|.),(.&.),complement,unsafeShiftL,finiteBitSize,
-  unsafeShiftR,countLeadingZeros)
-import Control.Monad.ST (ST,runST)
-import qualified Data.Char
+import GHC.Word (Word8(W8#),Word)
+import GHC.Exts (Int#,Word#,ByteArray#)
+import Data.Bits (xor,(.|.),(.&.),complement,unsafeShiftL)
 import qualified Data.Primitive as PM
 
 type Maybe# (a :: TYPE (r :: RuntimeRep)) = (# (# #) | a #)

@@ -12,10 +12,8 @@ import qualified Packed.Bytes.Stream.ST as Stream
 main :: IO ()
 main = do
   let r = runST $ runExampleParser
-        ( do P.takeBytesUntilEndOfLineConsume
-             P.takeBytesUntilEndOfLineConsume
-             P.takeBytesUntilEndOfLineConsume
-        ) (foldMap Stream.singleton (map charToWord8 "the\nemporium\rhas\narrived"))
+        (P.takeBytesUntilEndOfLineConsume)
+        (foldMap Stream.singleton (map charToWord8 "emporium"))
   print r
 
 runExampleParser :: Parser e () a -> ByteStream s -> ST s (Maybe a, Maybe String)

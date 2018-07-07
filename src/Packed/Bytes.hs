@@ -28,7 +28,7 @@ import Prelude hiding (take,length,replicate,drop,null,concat,foldr)
 
 import Data.Primitive (ByteArray(..))
 import Data.Word (Word8)
-import Control.Monad.ST (runST)
+import Control.Monad.ST (runST,ST)
 import qualified Data.Primitive as PM
 import qualified GHC.OldList as L
 
@@ -71,13 +71,6 @@ packByteArray ws0 = runST $ do
       go (w : ws) !ix = PM.writeByteArray marr ix w >> go ws (ix + 1)
   go ws0 0
   PM.unsafeFreezeByteArray marr
-
-unpackByteArray :: ByteArray -> [Word8]
-unpackByteArray arr = go 0 where
-  go :: Int -> [Word8]
-  go !ix = if ix < lengthByteArray arr
-    then PM.indexByteArray arr ix : go (ix + 1)
-    else []
 
 lengthByteArray :: ByteArray -> Int
 lengthByteArray = PM.sizeofByteArray
